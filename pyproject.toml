@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "cnc-data"
+version = "0.1.0"
+description = ""
+authors = ["Zach Scragg <zach.scragg@prodigygame.com>"]
+readme = "README.md"
+packages = [{include = "cnc_data"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
