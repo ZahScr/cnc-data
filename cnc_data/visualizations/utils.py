@@ -27,7 +27,12 @@ def export_chart(x_series, y_series, title, x_title, y_title, filetype="png"):
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         title_font=dict(family="Basic Sans", size=24),
-        xaxis=dict(title_font=dict(family="Noto Sans", size=18), color="black"),
+        xaxis=dict(
+            title_font=dict(family="Noto Sans", size=18),
+            color="black",
+            tickvals=x_series[::52],  # display every year
+            ticktext=x_series.dt.year[::52].astype(str),  # display year as string
+        ),
         yaxis=dict(title_font=dict(family="Noto Sans", size=18), color="black"),
     )
 
