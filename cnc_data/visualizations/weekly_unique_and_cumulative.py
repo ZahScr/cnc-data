@@ -59,7 +59,7 @@ df = df.withColumn(
     "first_user_week", first("observed_week", True).over(user_cumsum_window)
 ).withColumn("first_taxon_week", first("observed_week", True).over(taxon_cumsum_window))
 
-# Calculate metrics for species
+# Calculate metrics for new species
 sum_species_window = Window.orderBy("first_taxon_week").rowsBetween(
     Window.unboundedPreceding, Window.currentRow
 )
@@ -70,7 +70,16 @@ new_species_df = (
     .withColumn("cumulative_species", sum("new_species").over(sum_species_window))
 )
 
-# Calculate metrics for useres
+# Calculate metrics for unique species
+unique_species_df = (
+    df.groupBy("observed_week")
+    .agg(countDistinct("taxon_id").alias("unique_species"))
+    .withColumn("observed_week_unique_species", col("observed_week"))
+    .drop("observed_week")
+    .orderBy("observed_week_unique_species")
+)
+
+# Calculate metrics for new users
 sum_user_window = Window.orderBy("first_user_week").rowsBetween(
     Window.unboundedPreceding, Window.currentRow
 )
@@ -79,6 +88,15 @@ new_user_df = (
     .agg(countDistinct("user_id").alias("new_users"))
     .orderBy("first_user_week")
     .withColumn("cumulative_users", sum("new_users").over(sum_user_window))
+)
+
+# Calculate metrics for unique users
+unique_users_df = (
+    df.groupBy("observed_week")
+    .agg(countDistinct("user_id").alias("unique_users"))
+    .withColumn("observed_week_unique_users", col("observed_week"))
+    .drop("observed_week")
+    .orderBy("observed_week_unique_users")
 )
 
 # Calculate metrics for observations
@@ -100,14 +118,26 @@ final_df = (
         new_species_df, on=(col("observed_week") == col("first_taxon_week")), how="left"
     )
     .join(new_user_df, on=(col("observed_week") == col("first_user_week")), how="left")
+    .join(
+        unique_species_df,
+        on=(col("observed_week") == col("observed_week_unique_species")),
+        how="left",
+    )
+    .join(
+        unique_users_df,
+        on=(col("observed_week") == col("observed_week_unique_users")),
+        how="left",
+    )
     .select(
         "observed_week",
         "unique_observations",
         "cumulative_observations",
         "new_users",
         "cumulative_users",
+        "unique_users",
         "new_species",
         "cumulative_species",
+        "unique_species",
     )
 )
 
@@ -119,7 +149,10 @@ final_df_pd = final_df.filter(col("observed_week") >= "2015-01-01").toPandas()
 final_df_pd["observed_week_ts"] = final_df_pd["observed_week"].astype("datetime64[ns]")
 
 y_series_columns = list(
-    filter(lambda x: (x != "observed_week"), final_df_pd.columns.values.tolist())
+    filter(
+        lambda x: (x != "observed_week" & x != "observed_week_ts"),
+        final_df_pd.columns.values.tolist(),
+    )
 )
 
 for column in y_series_columns:
