@@ -39,4 +39,4 @@ def export_chart(x_series, y_series, title, x_title, y_title, filetype="png"):
     fig.write_image(f"images/test-{filename}.{filetype}")
 
     # # Show the plot
-    # fig.show()
+    fig.show()
