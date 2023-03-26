@@ -60,25 +60,25 @@ df = df.withColumn(
 ).withColumn("first_taxon_week", first("observed_week", True).over(taxon_cumsum_window))
 
 # Calculate metrics for species
-sum_taxon_window = Window.orderBy("first_taxon_week").rowsBetween(
+sum_species_window = Window.orderBy("first_taxon_week").rowsBetween(
     Window.unboundedPreceding, Window.currentRow
 )
-taxon_df = (
+new_species_df = (
     df.groupBy("first_taxon_week")
-    .agg(countDistinct("taxon_id").alias("unique_species"))
+    .agg(countDistinct("taxon_id").alias("new_species"))
     .orderBy("first_taxon_week")
-    .withColumn("cumulative_species", sum("unique_species").over(sum_taxon_window))
+    .withColumn("cumulative_species", sum("new_species").over(sum_species_window))
 )
 
 # Calculate metrics for useres
 sum_user_window = Window.orderBy("first_user_week").rowsBetween(
     Window.unboundedPreceding, Window.currentRow
 )
-user_df = (
+new_user_df = (
     df.groupBy("first_user_week")
-    .agg(countDistinct("user_id").alias("unique_users"))
+    .agg(countDistinct("user_id").alias("new_users"))
     .orderBy("first_user_week")
-    .withColumn("cumulative_users", sum("unique_users").over(sum_user_window))
+    .withColumn("cumulative_users", sum("new_users").over(sum_user_window))
 )
 
 # Calculate metrics for observations
@@ -97,16 +97,16 @@ observation_df = (
 # Join metrics on observation week
 final_df = (
     observation_df.join(
-        taxon_df, on=(col("observed_week") == col("first_taxon_week")), how="left"
+        new_species_df, on=(col("observed_week") == col("first_taxon_week")), how="left"
     )
-    .join(user_df, on=(col("observed_week") == col("first_user_week")), how="left")
+    .join(new_user_df, on=(col("observed_week") == col("first_user_week")), how="left")
     .select(
         "observed_week",
         "unique_observations",
         "cumulative_observations",
-        "unique_users",
+        "new_users",
         "cumulative_users",
-        "unique_species",
+        "new_species",
         "cumulative_species",
     )
 )
@@ -114,13 +114,9 @@ final_df = (
 final_df.show()
 
 # Convert the Spark dataframe to a Pandas dataframe
-final_df_pd = (
-    final_df.filter(col("observed_week") >= "2015-01-01")
-    .withColumn(
-        "observed_week_ts", to_timestamp("observed_week")
-    )  # convert observed_week to timestamp for plotting
-    .toPandas()
-)
+final_df_pd = final_df.filter(col("observed_week") >= "2015-01-01").toPandas()
+
+final_df_pd["observed_week_ts"] = final_df_pd["observed_week"].astype("datetime64[ns]")
 
 y_series_columns = list(
     filter(lambda x: (x != "observed_week"), final_df_pd.columns.values.tolist())
