@@ -9,7 +9,7 @@ from pyspark.sql.functions import (
     countDistinct,
 )
 from pyspark.sql.window import Window
-from utils import export_chart
+from utils import export_chart, get_cnc_events
 
 
 # Create a SparkSession
@@ -49,6 +49,8 @@ df = (
     .withColumn("observed_week", to_date(date_trunc("week", "observed_on")))
     .na.drop()
 )
+
+df.show()
 
 print(f"Total rows cleaned: {df.count()}")
 
@@ -150,10 +152,12 @@ final_df_pd["observed_week_ts"] = final_df_pd["observed_week"].astype("datetime6
 
 y_series_columns = list(
     filter(
-        lambda x: (x != "observed_week" & x != "observed_week_ts"),
+        lambda x: (x != "observed_week" and x != "observed_week_ts"),
         final_df_pd.columns.values.tolist(),
     )
 )
+
+cnc_events = get_cnc_events()
 
 for column in y_series_columns:
     series_type, category = map(lambda x: x.capitalize(), column.split("_"))
@@ -169,6 +173,7 @@ for column in y_series_columns:
         title=title,
         x_title="Observed Week",
         y_title=y_title,
+        cnc_events=cnc_events,
     )
     # include svg file
     export_chart(
@@ -178,4 +183,5 @@ for column in y_series_columns:
         x_title="Observed Week",
         y_title=y_title,
         filetype="svg",
+        cnc_events=cnc_events,
     )
