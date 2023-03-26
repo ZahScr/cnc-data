@@ -2,15 +2,13 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     to_date,
     date_trunc,
-    min,
     col,
     sum,
-    count,
     first,
     countDistinct,
 )
 from pyspark.sql.window import Window
-import plotly.graph_objs as go
+from utils import export_chart
 
 
 # Create a SparkSession
@@ -28,12 +26,14 @@ df2 = spark.read.format("csv").option("header", "true").load(csv_path2)
 df = df1.union(df2)
 
 # Print the column names
-print(df.columns)
+print("Loaded observations dataset with columns:")
+for name in df.columns:
+    print(name)
 
 # Count the total number of rows
-print(f"Total rows raw: {df.count()}")
+print(f"Total rows raw loaded: {df.count()}")
 
-# Select the specified columns
+# Select the specified columns and drop one nulls
 df = (
     df.select(
         "observed_on",
@@ -51,24 +51,25 @@ df = (
 
 print(f"Total rows cleaned: {df.count()}")
 
+# Calculate the first observation week for each user_id and taxon_id for every observation
 user_cumsum_window = Window.partitionBy("user_id").orderBy("observed_week")
 taxon_cumsum_window = Window.partitionBy("taxon_id").orderBy("observed_week")
-
-# calculate the first observation week for each user_id and taxon_id for every observation
 df = df.withColumn(
     "first_user_week", first("observed_week", True).over(user_cumsum_window)
 ).withColumn("first_taxon_week", first("observed_week", True).over(taxon_cumsum_window))
 
+# Calculate metrics for species
 sum_taxon_window = Window.orderBy("first_taxon_week").rowsBetween(
     Window.unboundedPreceding, Window.currentRow
 )
 taxon_df = (
     df.groupBy("first_taxon_week")
-    .agg(countDistinct("taxon_id").alias("unique_taxons"))
+    .agg(countDistinct("taxon_id").alias("unique_species"))
     .orderBy("first_taxon_week")
-    .withColumn("cumulative_taxons", sum("unique_taxons").over(sum_taxon_window))
+    .withColumn("cumulative_species", sum("unique_species").over(sum_taxon_window))
 )
 
+# Calculate metrics for useres
 sum_user_window = Window.orderBy("first_user_week").rowsBetween(
     Window.unboundedPreceding, Window.currentRow
 )
@@ -79,6 +80,7 @@ user_df = (
     .withColumn("cumulative_users", sum("unique_users").over(sum_user_window))
 )
 
+# Calculate metrics for observations
 sum_obs_window = Window.orderBy("observed_week").rowsBetween(
     Window.unboundedPreceding, Window.currentRow
 )
@@ -91,6 +93,7 @@ observation_df = (
     )
 )
 
+# Join metrics on observation week
 final_df = (
     observation_df.join(
         taxon_df, on=(col("observed_week") == col("first_taxon_week")), how="left"
@@ -102,42 +105,32 @@ final_df = (
         "cumulative_observations",
         "unique_users",
         "cumulative_users",
-        "unique_taxons",
-        "cumulative_taxons",
+        "unique_species",
+        "cumulative_species",
     )
 )
 
 final_df.show()
 
-# Extract the data from the Spark dataframe and convert to pandas
-pdf = final_df.select("observed_week", "cumulative_observations").toPandas()
+# Convert the Spark dataframe to a Pandas dataframe
+final_df_pd = final_df.filter(col("observed_week") >= "2015-01-01").toPandas()
 
-# Create the plotly figure
-fig = go.Figure()
-fig.add_trace(
-    go.Scatter(
-        x=pdf["observed_week"],
-        y=pdf["cumulative_observations"],
-        mode="lines",
-        name="Cumulative Observations",
+y_series_columns = list(
+    filter(lambda x: (x != "observed_week"), final_df_pd.columns.values.tolist())
+)
+
+for column in y_series_columns:
+    series_type, category = map(lambda x: x.capitalize(), column.split("_"))
+    y_series = final_df_pd[column]
+    title = f"Calgary {series_type} iNaturalist {category} by Week"
+    y_title = f"{series_type} {category}"
+
+    print(f"Exporting visualization for {y_title}")
+
+    export_chart(
+        x_series=final_df_pd["observed_week"],
+        y_series=y_series,
+        title=title,
+        x_title="Observed Week",
+        y_title=y_title,
     )
-)
-
-# Set the axis labels and title, etc
-font_family = "Noto Sans Black"
-
-fig.update_layout(
-    title={
-        "text": "Cumulative Observations by Week",
-        "font": {"family": "Basic Sans Blacks"},
-    },
-    xaxis={"title": "Week", "tickfont": {"family": font_family}},
-    yaxis={"title": "Cumulative Observations", "tickfont": {"family": font_family}},
-    # Set the background color and font color
-    plot_bgcolor="#07874B",
-    paper_bgcolor="#07874B",
-    font=dict(color="white"),
-)
-
-# Show the plot
-fig.show()
