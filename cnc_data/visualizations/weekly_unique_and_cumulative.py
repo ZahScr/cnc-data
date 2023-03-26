@@ -170,3 +170,12 @@ for column in y_series_columns:
         x_title="Observed Week",
         y_title=y_title,
     )
+    # include svg file
+    export_chart(
+        x_series=final_df_pd["observed_week_ts"],
+        y_series=y_series,
+        title=title,
+        x_title="Observed Week",
+        y_title=y_title,
+        filetype="svg",
+    )
