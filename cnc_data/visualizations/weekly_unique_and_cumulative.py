@@ -1,6 +1,7 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     to_date,
+    to_timestamp,
     date_trunc,
     col,
     sum,
@@ -113,7 +114,13 @@ final_df = (
 final_df.show()
 
 # Convert the Spark dataframe to a Pandas dataframe
-final_df_pd = final_df.filter(col("observed_week") >= "2015-01-01").toPandas()
+final_df_pd = (
+    final_df.filter(col("observed_week") >= "2015-01-01")
+    .withColumn(
+        "observed_week_ts", to_timestamp("observed_week")
+    )  # convert observed_week to timestamp for plotting
+    .toPandas()
+)
 
 y_series_columns = list(
     filter(lambda x: (x != "observed_week"), final_df_pd.columns.values.tolist())
@@ -128,7 +135,7 @@ for column in y_series_columns:
     print(f"Exporting visualization for {y_title}")
 
     export_chart(
-        x_series=final_df_pd["observed_week"],
+        x_series=final_df_pd["observed_week_ts"],
         y_series=y_series,
         title=title,
         x_title="Observed Week",
