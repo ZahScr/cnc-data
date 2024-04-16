@@ -7,7 +7,9 @@ from pyspark.sql.window import Window
 
 def calculate_user_metrics(spark: SparkSession, df: DataFrame) -> DataFrame:
     date_dimension_df = (
-        create_date_dimension(spark).select(col("start_of_week")).distinct()
+        create_date_dimension(spark)
+        .select(col("start_of_week"), col("year"))
+        .distinct()
     )
 
     # Calculate metrics for new users
@@ -25,6 +27,7 @@ def calculate_user_metrics(spark: SparkSession, df: DataFrame) -> DataFrame:
         )
         .select(
             col("start_of_week").alias("week"),
+            col("year"),
             coalesce(col("new_users"), lit(0)).alias("new_users"),
         )
     )
@@ -46,11 +49,11 @@ def calculate_user_metrics(spark: SparkSession, df: DataFrame) -> DataFrame:
         )
         .select(
             col("week"),
+            col("year"),
             col("new_users"),
             coalesce(col("unique_users"), lit(0)).alias("unique_users"),
             col("cumulative_users"),
         )
-        .filter(col("week").between("2024-01-01", "2024-04-01"))
         .orderBy("week")
     )
 

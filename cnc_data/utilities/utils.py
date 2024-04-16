@@ -257,3 +257,12 @@ def create_date_dimension(spark, starting_year=2015, ending_year=2025):
     )
 
     return date_dimension_df
+
+
+def load_metrics_data(spark: SparkSession) -> list[DataFrame]:
+    # Load CNC metrics data
+    users_df = spark.read.csv("cnc_data/output/users", header=True)
+    species_df = spark.read.csv("cnc_data/output/species", header=True)
+    observations_df = spark.read.csv("cnc_data/output/observations", header=True)
+
+    return [users_df, species_df, observations_df]

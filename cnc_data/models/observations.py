@@ -13,7 +13,9 @@ from pyspark.sql.window import Window
 
 def calculate_observation_metrics(spark: SparkSession, df: DataFrame) -> DataFrame:
     week_dimension_df = (
-        create_date_dimension(spark).select(col("start_of_week")).distinct()
+        create_date_dimension(spark)
+        .select(col("start_of_week"), col("year"))
+        .distinct()
     )
 
     # Calculate metrics for observations
@@ -31,6 +33,7 @@ def calculate_observation_metrics(spark: SparkSession, df: DataFrame) -> DataFra
         )
         .select(
             col("start_of_week").alias("week"),
+            col("year"),
             coalesce(col("unique_observations"), lit(0)).alias("unique_observations"),
         )
     )
@@ -42,10 +45,10 @@ def calculate_observation_metrics(spark: SparkSession, df: DataFrame) -> DataFra
         )
         .select(
             col("week"),
+            col("year"),
             col("unique_observations"),
             col("cumulative_observations"),
         )
-        .filter(col("week").between("2024-01-01", "2024-04-01"))
         .orderBy("week")
     )
 
