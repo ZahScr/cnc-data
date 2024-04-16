@@ -12,6 +12,8 @@ def get_cnc_events():
         "2020": ["2020-04-24", "2020-04-27"],
         "2021": ["2021-04-30", "2021-05-03"],
         "2022": ["2022-04-29", "2022-05-02"],
+        "2023": ["2023-04-29", "2023-05-02"],
+        "2024": ["2024-04-29", "2024-05-02"],
     }
 
 
@@ -92,7 +94,7 @@ def export_chart(
 def transform(spark: SparkSession, df: DataFrame) -> DataFrame:
     df = (
         df.filter(col("observed_on") >= "2015-01-01")
-        .withColumn("observed_week", to_date(date_trunc("week", "observed_on")))
+        .withColumn("observed_week", date_trunc("week", "observed_on").cast("date"))
         .na.drop()
     )
 
@@ -127,20 +129,61 @@ def transform(spark: SparkSession, df: DataFrame) -> DataFrame:
 # This function is used to load the raw CNC data into a Spark dataframe
 def load_cnc_data(spark: SparkSession) -> DataFrame:
     # Define the paths to the CSV files
-    csv_path1 = "cnc_data/raw/observations-306591.csv"
-    csv_path2 = "cnc_data/raw/observations-306599.csv"
+    csv_path1 = "cnc_data/raw/observations-420624.csv"
+    csv_path2 = "cnc_data/raw/observations-420636.csv"
+    csv_path3 = "cnc_data/raw/observations-420647.csv"
 
     # Read the CSV files into Spark dataframes
-    df1 = spark.read.format("csv").option("header", "true").load(csv_path1)
-    df2 = spark.read.format("csv").option("header", "true").load(csv_path2)
+    df1 = (
+        spark.read.format("csv")
+        .option("header", "true")
+        .load(csv_path1)
+        .select(
+            col("observed_on"),
+            col("time_observed_at"),
+            col("id"),
+            col("taxon_id"),
+            col("user_id"),
+            col("common_name"),
+            col("scientific_name"),
+        )
+    )
+    df2 = (
+        spark.read.format("csv")
+        .option("header", "true")
+        .load(csv_path2)
+        .select(
+            col("observed_on"),
+            col("time_observed_at"),
+            col("id"),
+            col("taxon_id"),
+            col("user_id"),
+            col("common_name"),
+            col("scientific_name"),
+        )
+    )
+    df3 = (
+        spark.read.format("csv")
+        .option("header", "true")
+        .load(csv_path3)
+        .select(
+            col("observed_on"),
+            col("time_observed_at"),
+            col("id"),
+            col("taxon_id"),
+            col("user_id"),
+            col("common_name"),
+            col("scientific_name"),
+        )
+    )
 
     # Concatenate the two dataframes vertically
-    df = df1.union(df2)
+    df = df1.unionAll(df2).unionAll(df3)
 
     # Print the column names
-    print("Loaded observations dataset with columns:")
-    for name in df.columns:
-        print(name)
+    # print("Loaded observations dataset with columns:")
+    # for name in df.columns:
+    #     print(name)
 
     # Count the total number of rows
     print(f"Total rows raw loaded: {df.count()}")
@@ -194,7 +237,7 @@ from pyspark.sql.functions import (
 )
 
 
-def create_date_dimension(spark, starting_year=2010, ending_year=2030):
+def create_date_dimension(spark, starting_year=2015, ending_year=2025):
     # Create a DataFrame with a single column named "date", containing dates from 2010-01-01 to 2030-12-31
     date_df = spark.range(0, (ending_year + 1 - starting_year) * 365, 1).selectExpr(
         f"date_add('{starting_year}-01-01', cast(id as int)) as date"
@@ -203,6 +246,7 @@ def create_date_dimension(spark, starting_year=2010, ending_year=2030):
     # Add the required columns to the DataFrame
     date_dimension_df = date_df.select(
         col("date"),
+        date_trunc("week", col("date")).cast("date").alias("start_of_week"),
         year("date").alias("year"),
         month("date").alias("month"),
         date_format(col("date"), "MMMM").alias("month_name"),
