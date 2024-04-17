@@ -4,7 +4,7 @@ from pyspark.sql.functions import (
     col,
 )
 from pyspark.sql.window import Window
-from cnc_data.utilities.utils import (
+from cnc_data.utilities.data_utils import (
     export_chart,
     get_cnc_events,
     load_cnc_data,

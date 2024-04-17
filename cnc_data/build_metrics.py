@@ -1,6 +1,6 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.window import Window
-from cnc_data.utilities.utils import load_cnc_data
+from cnc_data.utilities.data_utils import load_cnc_data
 from cnc_data.models.users import calculate_user_metrics
 from cnc_data.models.species import calculate_species_metrics
 from cnc_data.models.observations import calculate_observation_metrics

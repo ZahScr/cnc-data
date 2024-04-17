@@ -8,7 +8,7 @@ from pyspark.sql.functions import (
     lit,
     current_date,
 )
-from cnc_data.utilities.utils import create_date_dimension
+from cnc_data.utilities.data_utils import create_date_dimension
 from pyspark.sql.window import Window
 
 

@@ -9,7 +9,7 @@ from pyspark.sql.functions import (
     datediff,
 )
 from pyspark.sql.window import Window
-from cnc_data.utilities.utils import export_chart
+from cnc_data.utilities.data_utils import export_chart
 
 
 # Create a SparkSession
