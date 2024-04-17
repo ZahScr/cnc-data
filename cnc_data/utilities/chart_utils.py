@@ -1,19 +1,32 @@
 import plotly.graph_objs as go
 from pyspark.sql.dataframe import DataFrame
-from pyspark.sql.window import Window
 from datetime import datetime
+from cnc_data.utilities.data_utils import date_trunc_week
 import os
+
+year_color_map = [
+    [2015, "#9e0142"],
+    [2016, "#d53e4f"],
+    [2017, "#f46d43"],
+    [2018, "#fdae61"],
+    [2019, "#fee08b"],
+    [2020, "#e6f598"],
+    [2021, "#abdda4"],
+    [2022, "#66c2a5"],
+    [2023, "#3288bd"],
+    [2024, "#5e4fa2"],
+]
 
 
 # This function is used to transform the final dataframe to a Pandas dataframe for plotting
-def transform_for_chart(
-    spark: SparkSession, df: DataFrame, columns: list[str]
-) -> DataFrame:
+def transform_for_chart(df: DataFrame) -> DataFrame:
     # Convert the Spark dataframe to a Pandas dataframe
     df_pd = df.toPandas()
 
-    df_pd["week"] = df_pd["observed_week"].astype("datetime64[ns]")
+    df_pd["week"] = df_pd["week"].astype("datetime64[ns]")
+    df_pd["year"] = df_pd["year"].astype("int")
 
+    # TODO: Clean this up
     # y_series_columns = list(
     #     filter(
     #         lambda x: (x != "observed_week" and x != "observed_week_ts"),
@@ -21,25 +34,12 @@ def transform_for_chart(
     #     )
     # )
 
-    return df_pd, y_series_columns
+    return df_pd
 
 
 def export_new_objects_yearly_chart(
     df: DataFrame, metric_object: str, metric_type=str, filetype="png", cnc_events=None
 ):
-    years_colors = [
-        [2015, "#9e0142"],
-        [2016, "#d53e4f"],
-        [2017, "#f46d43"],
-        [2018, "#fdae61"],
-        [2019, "#fee08b"],
-        [2020, "#e6f598"],
-        [2021, "#abdda4"],
-        [2022, "#66c2a5"],
-        [2023, "#3288bd"],
-        [2024, "#5e4fa2"],
-    ]
-
     df_pd = df.toPandas()
     df_pd["week"] = df_pd["week"].astype("datetime64[ns]")
     df_pd["year"] = df_pd["year"].astype("int")
@@ -52,7 +52,7 @@ def export_new_objects_yearly_chart(
 
     fig = go.Figure()
 
-    for item in years_colors:
+    for item in year_color_map:
         year = item[0]
         color = item[1]
         year_data = df_pd[df_pd["year"] == year]
@@ -68,17 +68,6 @@ def export_new_objects_yearly_chart(
                     # connectgaps=False,
                 )
             )
-
-        # Create the scatter plot
-        # fig.add_trace(
-        #     go.Scatter(
-        #         x=x_series,
-        #         y=y_series,
-        #         mode="lines",
-        #         fill="tozeroy",
-        #         line=dict(color="#07874B"),
-        #     )
-        # )
 
     # Set the chart title and axes labels
     fig.update_layout(
@@ -136,22 +125,7 @@ def export_cumulative_yearly_chart(
     metric_object: str,
     filetype="png",
 ):
-    years_colors = [
-        [2015, "#9e0142"],
-        [2016, "#d53e4f"],
-        [2017, "#f46d43"],
-        [2018, "#fdae61"],
-        [2019, "#fee08b"],
-        [2020, "#e6f598"],
-        [2021, "#abdda4"],
-        [2022, "#66c2a5"],
-        [2023, "#3288bd"],
-        [2024, "#5e4fa2"],
-    ]
-
-    df_pd = df.toPandas()
-    df_pd["week"] = df_pd["week"].astype("datetime64[ns]")
-    df_pd["year"] = df_pd["year"].astype("int")
+    df_pd = transform_for_chart(df)
 
     # series_type, category = map(lambda x: x.capitalize(), column.split("_"))
     title = f"Calgary Cumulative New iNaturalist {metric_object.capitalize()} by Week"
@@ -162,7 +136,7 @@ def export_cumulative_yearly_chart(
     # Create the scatter plot
     fig = go.Figure()
 
-    for item in years_colors:
+    for item in year_color_map:
         year = item[0]
         color = item[1]
         year_data = df_pd[df_pd["year"] == year]

@@ -28,7 +28,6 @@ def get_cnc_events():
 
 
 def date_trunc_week(date):
-    # dt = datetime.strptime(date, "%d/%b/%Y")
     dt = datetime.strptime(date, "%Y-%m-%d").date()
 
     week_start = dt - timedelta(days=dt.weekday())
@@ -37,7 +36,7 @@ def date_trunc_week(date):
 
 
 # This function is used to transform the raw data into a format that can be used for analysis
-def transform(spark: SparkSession, df: DataFrame) -> DataFrame:
+def transform_for_metrics(spark: SparkSession, df: DataFrame) -> DataFrame:
     df = (
         df.filter(col("observed_on") >= "2015-01-01")
         .withColumn("observed_week", date_trunc("week", "observed_on").cast("date"))
@@ -146,9 +145,7 @@ def load_cnc_data(spark: SparkSession) -> DataFrame:
         "scientific_name",
     )
 
-    df = transform(spark, df)
-
-    # df.show()
+    df = transform_for_metrics(spark, df)
 
     print(f"Total rows cleaned: {df.count()}")
 
