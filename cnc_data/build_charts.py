@@ -1,35 +1,58 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col
-from cnc_data.utilities.utils import load_metrics_data
+from pyspark.sql.functions import col, first_value, row_number
+from pyspark.sql.window import Window
+from pyspark.sql.dataframe import DataFrame
+from cnc_data.utilities.utils import (
+    load_metrics_data,
+    export_new_objects_yearly_chart,
+    export_cumulative_yearly_chart,
+    transform_for_yearly_cumulative_chart,
+)
 
 # Create a SparkSession
 spark = SparkSession.builder.appName("CNC Data").getOrCreate()
 
 users_df, species_df, observations_df = load_metrics_data(spark)
 
-# users_df.show()
-# species_df.show()
-# observations_df.show()
 
-df = (
-    users_df.alias("users")
-    .join(species_df, on="week", how="left")
-    .join(
-        observations_df,
-        on="week",
-        how="left",
-    )
-    .selectExpr(
-        "users.week",
-        "users.year",
-        "new_users",
-        "unique_users",
-        "cumulative_users",
-        "new_species",
-        "unique_species",
-        "cumulative_species",
-        "unique_observations",
-        "cumulative_observations",
-    )
-    .show()
+transformed_df = transform_for_yearly_cumulative_chart(
+    users_df, species_df, observations_df
+).filter(col("year") >= 2018)
+
+transformed_df.select(
+    "week",
+    "year",
+    "week_number",
+    "new_users",
+    "unique_users",
+    "new_species",
+    "unique_species",
+    "unique_observations",
+).show(1000)
+
+
+# Export cumulative charts
+export_cumulative_yearly_chart(transformed_df, metric_object="users", filetype="svg")
+export_cumulative_yearly_chart(transformed_df, metric_object="species", filetype="svg")
+export_cumulative_yearly_chart(
+    transformed_df, metric_object="observations", filetype="svg"
+)
+
+# Export new charts
+export_new_objects_yearly_chart(
+    transformed_df, metric_object="users", metric_type="new", filetype="svg"
+)
+export_new_objects_yearly_chart(
+    transformed_df, metric_object="species", metric_type="new", filetype="svg"
+)
+
+# Export unique charts
+export_new_objects_yearly_chart(
+    transformed_df, metric_object="users", metric_type="unique", filetype="svg"
+)
+export_new_objects_yearly_chart(
+    transformed_df, metric_object="species", metric_type="unique", filetype="svg"
+)
+export_new_objects_yearly_chart(
+    transformed_df, metric_object="observations", metric_type="unique", filetype="svg"
 )

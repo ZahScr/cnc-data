@@ -6,6 +6,7 @@ from pyspark.sql.functions import (
     countDistinct,
     coalesce,
     lit,
+    current_date,
 )
 from cnc_data.utilities.utils import create_date_dimension
 from pyspark.sql.window import Window
@@ -14,7 +15,9 @@ from pyspark.sql.window import Window
 def calculate_observation_metrics(spark: SparkSession, df: DataFrame) -> DataFrame:
     week_dimension_df = (
         create_date_dimension(spark)
-        .select(col("start_of_week"), col("year"))
+        .select(
+            col("start_of_week"), col("year"), col("week_number"), col("start_of_year")
+        )
         .distinct()
     )
 
@@ -34,6 +37,8 @@ def calculate_observation_metrics(spark: SparkSession, df: DataFrame) -> DataFra
         .select(
             col("start_of_week").alias("week"),
             col("year"),
+            col("start_of_year"),
+            col("week_number"),
             coalesce(col("unique_observations"), lit(0)).alias("unique_observations"),
         )
     )
@@ -46,9 +51,13 @@ def calculate_observation_metrics(spark: SparkSession, df: DataFrame) -> DataFra
         .select(
             col("week"),
             col("year"),
+            col("start_of_year"),
+            col("week_number"),
             col("unique_observations"),
             col("cumulative_observations"),
         )
+        .distinct()
+        .filter(col("week") <= current_date())
         .orderBy("week")
     )
 

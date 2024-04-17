@@ -1,6 +1,6 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.dataframe import DataFrame
-from pyspark.sql.functions import col, sum, countDistinct, coalesce, lit
+from pyspark.sql.functions import col, sum, countDistinct, coalesce, lit, current_date
 from cnc_data.utilities.utils import create_date_dimension
 from pyspark.sql.window import Window
 
@@ -8,7 +8,9 @@ from pyspark.sql.window import Window
 def calculate_species_metrics(spark: SparkSession, df: DataFrame) -> DataFrame:
     date_dimension_df = (
         create_date_dimension(spark)
-        .select(col("start_of_week"), col("year"))
+        .select(
+            col("start_of_week"), col("year"), col("week_number"), col("start_of_year")
+        )
         .distinct()
     )
 
@@ -28,6 +30,8 @@ def calculate_species_metrics(spark: SparkSession, df: DataFrame) -> DataFrame:
         .select(
             col("start_of_week").alias("week"),
             col("year"),
+            col("start_of_year"),
+            col("week_number"),
             coalesce(col("new_species"), lit(0)).alias("new_species"),
         )
     )
@@ -50,10 +54,14 @@ def calculate_species_metrics(spark: SparkSession, df: DataFrame) -> DataFrame:
         .select(
             col("week"),
             col("year"),
+            col("start_of_year"),
+            col("week_number"),
             col("new_species"),
             coalesce(col("unique_species"), lit(0)).alias("unique_species"),
             col("cumulative_species"),
         )
+        .distinct()
+        .filter(col("week") <= current_date())
         .orderBy("week")
     )
 
