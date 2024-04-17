@@ -1,5 +1,5 @@
 # CNC Data
-- This 
+- This project uses observational data from [iNaturalist](https://www.inaturalist.org/home) to build metrics and export charts.
 
 ### Setup:
 
@@ -27,7 +27,6 @@
 ### Build metrics tables
 - From root, run `python cnc_data/build_metrics.py`
 - This outputs to `cnc_data/output`
-
 
 ### Export charts
 - From root, run `python cnc_data/build_charts.py`
