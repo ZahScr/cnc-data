@@ -134,3 +134,4 @@ dmypy.json
 # Output data files
 output/
 cnc_data/raw/*
+images/*
