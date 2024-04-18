@@ -6,7 +6,6 @@ from pyspark.sql.functions import col
 from cnc_data.utilities.data_utils import (
     load_metrics_data,
     transform_for_weekly_cumulative_year_chart,
-    test_new_transform_for_weekly_cumulative_year_chart,
     create_date_dimension,
 )
 from cnc_data.utilities.chart_utils import (
