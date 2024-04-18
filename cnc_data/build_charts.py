@@ -4,9 +4,9 @@ from pyspark.sql.functions import col
 # from pyspark.sql.window import Window
 # from pyspark.sql.dataframe import DataFrame
 from cnc_data.utilities.data_utils import (
-    load_weekly_metrics_data,
-    load_daily_metrics_data,
+    load_metrics_data,
     transform_for_weekly_cumulative_year_chart,
+    test_new_transform_for_weekly_cumulative_year_chart,
     create_date_dimension,
 )
 from cnc_data.utilities.chart_utils import (
@@ -18,14 +18,12 @@ from cnc_data.utilities.chart_utils import (
 spark = SparkSession.builder.appName("CNC Data").getOrCreate()
 
 # Load CNC pre-computed metrics data
-weekly_users_df, weekly_species_df, weekly_observations_df = load_weekly_metrics_data(
-    spark
-)
-daily_users_df, daily_species_df, daily_observations_df = load_daily_metrics_data(spark)
+users_df, species_df, observations_df = load_metrics_data(spark, period="weekly")
+
 
 # Transform for charts (combine and filter)
 weekly_transformed_df = transform_for_weekly_cumulative_year_chart(
-    weekly_users_df, weekly_species_df, weekly_observations_df
+    users_df, species_df, observations_df
 ).filter(col("year") >= 2018)
 
 METRICS = ["users", "species", "observations"]
