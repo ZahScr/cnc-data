@@ -19,11 +19,15 @@ year_color_map = [
 
 
 # This function is used to transform the final dataframe to a Pandas dataframe for plotting
-def transform_for_chart(df: DataFrame) -> DataFrame:
+def transform_for_chart(df: DataFrame, x_column: str) -> DataFrame:
     # Convert the Spark dataframe to a Pandas dataframe
     df_pd = df.toPandas()
 
-    df_pd["week"] = df_pd["week"].astype("datetime64[ns]")
+    if x_column in ("week", "date"):
+        df_pd[x_column] = df_pd[x_column].astype("datetime64[ns]")
+    elif x_column in ("week_number", "day_of_year"):
+        df_pd[x_column] = df_pd[x_column].astype("int")
+
     df_pd["year"] = df_pd["year"].astype("int")
 
     # TODO: Clean this up
@@ -38,17 +42,21 @@ def transform_for_chart(df: DataFrame) -> DataFrame:
 
 
 def export_new_objects_yearly_chart(
-    df: DataFrame, metric_object: str, metric_type=str, filetype="png", cnc_events=None
+    df: DataFrame,
+    metric_object: str,
+    metric_type: str,
+    period_name: str,
+    x_column: str,
+    filetype="png",
+    cnc_events=None,
 ):
-    df_pd = df.toPandas()
-    df_pd["week"] = df_pd["week"].astype("datetime64[ns]")
-    df_pd["year"] = df_pd["year"].astype("int")
+    df_pd = transform_for_chart(df, x_column)
 
     # series_type, category = map(lambda x: x.capitalize(), column.split("_"))
-    title = f"Calgary {metric_type.capitalize()} iNaturalist {metric_object.capitalize()} by Week"
+    title = f"Calgary {metric_type.capitalize()} iNaturalist {metric_object.capitalize()} by {period_name.capitalize()}"
     y_series_name = f"{metric_type}_{metric_object}"
     y_title = f"{metric_type.capitalize()} {metric_object.capitalize()}"
-    x_title = "Observation Week"
+    x_title = f"Observation {period_name.capitalize()}"
 
     fig = go.Figure()
 
@@ -60,7 +68,7 @@ def export_new_objects_yearly_chart(
         if not year_data.empty:
             fig.add_trace(
                 go.Scatter(
-                    x=year_data["week_number"],
+                    x=year_data[x_column],
                     y=year_data[y_series_name],
                     mode="lines",
                     line=dict(color=color),
@@ -84,11 +92,19 @@ def export_new_objects_yearly_chart(
         xaxis=dict(
             title_font=dict(family="Noto Sans", size=18),
             color="black",
+            showline=True,  # Show the x-axis line
+            linewidth=2,  # Set the x-axis line width
+            linecolor="black",  # Set the x-axis line color
             # tickvals=x_series[::52],  # display every year
             # ticktext=x_series.dt.year[::52].astype(str),  # display year as string
         ),
         yaxis=dict(
-            title_font=dict(family="Noto Sans", size=18), color="black", autorange=True
+            title_font=dict(family="Noto Sans", size=18),
+            color="black",
+            autorange=True,
+            showline=True,  # Show the x-axis line
+            linewidth=2,  # Set the x-axis line width
+            linecolor="black",  # Set the x-axis line color
         ),
     )
 
@@ -123,15 +139,17 @@ def export_new_objects_yearly_chart(
 def export_cumulative_yearly_chart(
     df: DataFrame,
     metric_object: str,
+    period_name: str,
+    x_column: str,
     filetype="png",
 ):
-    df_pd = transform_for_chart(df)
+    df_pd = transform_for_chart(df, x_column)
 
     # series_type, category = map(lambda x: x.capitalize(), column.split("_"))
-    title = f"Calgary Cumulative New iNaturalist {metric_object.capitalize()} by Week"
+    title = f"Calgary Cumulative New iNaturalist {metric_object.capitalize()} by {period_name.capitalize()}"
     y_series_name = f"year_adjusted_cumulative_{metric_object}"
     y_title = f"Cumulative New {metric_object.capitalize()}"
-    x_title = "Observation Week"
+    x_title = f"Observation {period_name.capitalize()}"
 
     # Create the scatter plot
     fig = go.Figure()
@@ -144,7 +162,7 @@ def export_cumulative_yearly_chart(
         if not year_data.empty:
             fig.add_trace(
                 go.Scatter(
-                    x=year_data["week_number"],
+                    x=year_data[x_column],
                     y=year_data[y_series_name],
                     mode="lines",
                     line=dict(color=color),
@@ -168,8 +186,17 @@ def export_cumulative_yearly_chart(
         xaxis=dict(
             title_font=dict(family="Noto Sans", size=18),
             color="black",
+            showline=True,  # Show the x-axis line
+            linewidth=2,  # Set the x-axis line width
+            linecolor="black",  # Set the x-axis line color
         ),
-        yaxis=dict(title_font=dict(family="Noto Sans", size=18), color="black"),
+        yaxis=dict(
+            title_font=dict(family="Noto Sans", size=18),
+            color="black",
+            showline=True,  # Show the x-axis line
+            linewidth=2,  # Set the x-axis line width
+            linecolor="black",  # Set the x-axis line color
+        ),
     )
 
     if not os.path.exists("images"):
