@@ -141,13 +141,13 @@ def export_cumulative_yearly_chart(
     metric_object: str,
     period_name: str,
     x_column: str,
+    y_column: str,
     filetype="png",
 ):
     df_pd = transform_for_chart(df, x_column)
 
     # series_type, category = map(lambda x: x.capitalize(), column.split("_"))
     title = f"Calgary Cumulative New iNaturalist {metric_object.capitalize()} by {period_name.capitalize()}"
-    y_series_name = f"year_adjusted_cumulative_{metric_object}"
     y_title = f"Cumulative New {metric_object.capitalize()}"
     x_title = f"Observation {period_name.capitalize()}"
 
@@ -163,7 +163,7 @@ def export_cumulative_yearly_chart(
             fig.add_trace(
                 go.Scatter(
                     x=year_data[x_column],
-                    y=year_data[y_series_name],
+                    y=year_data[y_column],
                     mode="lines",
                     line=dict(color=color),
                     name=str(year),

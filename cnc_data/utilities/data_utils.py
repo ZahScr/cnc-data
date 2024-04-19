@@ -239,8 +239,9 @@ def load_metrics_data(spark: SparkSession, period: str = "weekly") -> list[DataF
     observations_df = spark.read.csv(
         f"cnc_data/output/{period}_observations", header=True
     )
+    plants_df = spark.read.csv(f"cnc_data/output/{period}_plants")
 
-    return [users_df, species_df, observations_df]
+    return [users_df, species_df, observations_df, plants_df]
 
 
 def transform_for_weekly_cumulative_year_chart(

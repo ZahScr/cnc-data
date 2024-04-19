@@ -1,6 +1,14 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.dataframe import DataFrame
-from pyspark.sql.functions import col, sum, countDistinct, coalesce, lit, current_date
+from pyspark.sql.functions import (
+    col,
+    sum,
+    countDistinct,
+    coalesce,
+    lit,
+    current_date,
+    count,
+)
 from cnc_data.utilities.data_utils import create_date_dimension
 from pyspark.sql.window import Window
 
@@ -132,6 +140,71 @@ def calculate_daily_species_metrics(spark: SparkSession, df: DataFrame) -> DataF
         .distinct()
         .filter(col("date") <= current_date())
         .orderBy("date")
+    )
+
+    return output_df
+
+
+def calculate_weekly_metrics_for_species(
+    spark: SparkSession, df: DataFrame, common_names: list
+) -> DataFrame:
+    date_dimension_df = (
+        create_date_dimension(spark)
+        .select(
+            col("start_of_week"),
+            col("start_of_week_year").alias("year"),
+            col("start_of_week_week_number_reconciled").alias("week_number"),
+            col("start_of_year"),
+        )
+        .distinct()
+    )
+
+    taxon_filtered_df = df.filter(col("common_name").isin(common_names))
+
+    # Calculate metrics for new users
+    sum_observations_window = (
+        Window.partitionBy("taxon_id", "common_name")
+        .orderBy("week")
+        .rowsBetween(Window.unboundedPreceding, Window.currentRow)
+    )
+
+    complete_dates_taxon_df = (
+        taxon_filtered_df.groupBy("observed_week", "taxon_id")
+        .agg(count("1").alias("observations"))
+        .join(
+            date_dimension_df,
+            on=(col("start_of_week") == col("observed_week")),
+            how="right",
+        )
+        .select(
+            col("start_of_week").alias("week"),
+            col("taxon_id"),
+            col("common_name"),
+            col("year"),
+            col("start_of_year"),
+            col("week_number"),
+            coalesce(col("observations"), lit(0)).alias("observations"),
+        )
+    )
+
+    cumulative_taxon_df = complete_dates_taxon_df.orderBy("week").withColumn(
+        "cumulative_observations", sum("observations").over(sum_observations_window)
+    )
+
+    output_df = (
+        cumulative_taxon_df.select(
+            col("taxon_id"),
+            col("common_name"),
+            col("week"),
+            col("year"),
+            col("start_of_year"),
+            col("week_number"),
+            col("observations"),
+            col("cumulative_observations"),
+        )
+        .distinct()
+        .filter(col("week") <= current_date())
+        .orderBy("week")
     )
 
     return output_df
