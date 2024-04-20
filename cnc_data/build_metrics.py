@@ -7,6 +7,12 @@ from cnc_data.models.species import (
     calculate_weekly_metrics_for_species,
 )
 from cnc_data.models.observations import calculate_weekly_observation_metrics
+from cnc_data.constants import (
+    SCIENTIFIC_PLANTS,
+    SCIENTIFIC_SNAKES,
+    SCIENTIFIC_BIRDS,
+    SCIENTIFIC_FROGS,
+)
 
 # Create a SparkSession
 spark = SparkSession.builder.appName("CNC Data").getOrCreate()
@@ -23,8 +29,12 @@ weekly_species_df = calculate_weekly_species_metrics(spark, df)
 weekly_observations_df = calculate_weekly_observation_metrics(spark, df)
 # weekly_observations_df.show()
 
-weekly_plant_metrics_df = calculate_weekly_metrics_for_species(
-    spark, df, ["Plantae", "Tracheophyta"]
+ALL_SCIENTIFIC_NAMES = (
+    SCIENTIFIC_PLANTS + SCIENTIFIC_SNAKES + SCIENTIFIC_BIRDS + SCIENTIFIC_FROGS
+)
+
+weekly_by_species_metrics_df = calculate_weekly_metrics_for_species(
+    spark, df, ALL_SCIENTIFIC_NAMES
 )
 
 # users_df.write.mode("overwrite").csv("cnc_data/output/users")
@@ -44,7 +54,7 @@ weekly_observations_df.write.format("com.databricks.spark.csv").mode(
     "overwrite"
 ).option("header", "true").save("cnc_data/output/weekly_observations")
 
-# Save plant metrics
-weekly_plant_metrics_df.write.format("com.databricks.spark.csv").mode(
+# Save species-specific metrics
+weekly_by_species_metrics_df.write.format("com.databricks.spark.csv").mode(
     "overwrite"
-).option("header", "true").save("cnc_data/output/weekly_plants")
+).option("header", "true").save("cnc_data/output/weekly_by_species")

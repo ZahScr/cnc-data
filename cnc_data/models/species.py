@@ -1,5 +1,6 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.dataframe import DataFrame
+from typing import List
 from pyspark.sql.functions import (
     col,
     sum,
@@ -8,6 +9,7 @@ from pyspark.sql.functions import (
     lit,
     current_date,
     count,
+    lower,
 )
 from cnc_data.utilities.data_utils import create_date_dimension
 from pyspark.sql.window import Window
@@ -146,7 +148,7 @@ def calculate_daily_species_metrics(spark: SparkSession, df: DataFrame) -> DataF
 
 
 def calculate_weekly_metrics_for_species(
-    spark: SparkSession, df: DataFrame, common_names: list
+    spark: SparkSession, df: DataFrame, scientific_names: List[str]
 ) -> DataFrame:
     date_dimension_df = (
         create_date_dimension(spark)
@@ -159,18 +161,24 @@ def calculate_weekly_metrics_for_species(
         .distinct()
     )
 
-    taxon_filtered_df = df.filter(col("common_name").isin(common_names))
+    lower_case_case_scientific_names = [name.lower() for name in scientific_names]
+
+    taxon_filtered_df = df.filter(
+        lower(col("scientific_name")).isin(lower_case_case_scientific_names)
+    )
 
     # Calculate metrics for new users
     sum_observations_window = (
-        Window.partitionBy("taxon_id", "common_name")
+        Window.partitionBy("taxon_id", "scientific_name")
         .orderBy("week")
         .rowsBetween(Window.unboundedPreceding, Window.currentRow)
     )
 
     complete_dates_taxon_df = (
-        taxon_filtered_df.groupBy("observed_week", "taxon_id")
-        .agg(count("1").alias("observations"))
+        taxon_filtered_df.groupBy(
+            "observed_week", "taxon_id", "scientific_name", "common_name"
+        )
+        .agg(countDistinct("id").alias("observations"))
         .join(
             date_dimension_df,
             on=(col("start_of_week") == col("observed_week")),
@@ -179,6 +187,7 @@ def calculate_weekly_metrics_for_species(
         .select(
             col("start_of_week").alias("week"),
             col("taxon_id"),
+            col("scientific_name"),
             col("common_name"),
             col("year"),
             col("start_of_year"),
@@ -194,6 +203,7 @@ def calculate_weekly_metrics_for_species(
     output_df = (
         cumulative_taxon_df.select(
             col("taxon_id"),
+            col("scientific_name"),
             col("common_name"),
             col("week"),
             col("year"),

@@ -18,6 +18,13 @@ year_color_map = [
 ]
 
 
+def write_image(fig, object_path_name: str, filename: str, filetype: str = "png"):
+    if not os.path.exists(f"images/{object_path_name}"):
+        os.mkdir(f"images/{object_path_name}")
+
+    fig.write_image(f"images/{object_path_name}/{filename}.{filetype}")
+
+
 # This function is used to transform the final dataframe to a Pandas dataframe for plotting
 def transform_for_chart(df: DataFrame, x_column: str) -> DataFrame:
     # Convert the Spark dataframe to a Pandas dataframe
@@ -47,6 +54,7 @@ def export_new_objects_yearly_chart(
     metric_type: str,
     period_name: str,
     x_column: str,
+    y_column: str,
     filetype="png",
     cnc_events=None,
 ):
@@ -54,7 +62,6 @@ def export_new_objects_yearly_chart(
 
     # series_type, category = map(lambda x: x.capitalize(), column.split("_"))
     title = f"Calgary {metric_type.capitalize()} iNaturalist {metric_object.capitalize()} by {period_name.capitalize()}"
-    y_series_name = f"{metric_type}_{metric_object}"
     y_title = f"{metric_type.capitalize()} {metric_object.capitalize()}"
     x_title = f"Observation {period_name.capitalize()}"
 
@@ -69,7 +76,7 @@ def export_new_objects_yearly_chart(
             fig.add_trace(
                 go.Scatter(
                     x=year_data[x_column],
-                    y=year_data[y_series_name],
+                    y=year_data[y_column],
                     mode="lines",
                     line=dict(color=color),
                     name=str(year),
@@ -125,12 +132,10 @@ def export_new_objects_yearly_chart(
                 line_width=0,
             )
 
-    if not os.path.exists("images"):
-        os.mkdir("images")
-
+    object_path_name = "-".join(metric_object.lower().split(" "))
     filename = "-".join(title.lower().split(" "))
 
-    fig.write_image(f"images/{filename}.{filetype}")
+    write_image(fig, object_path_name, filename, filetype)
 
     # # Show the plot
     # fig.show()
@@ -199,12 +204,10 @@ def export_cumulative_yearly_chart(
         ),
     )
 
-    if not os.path.exists("images"):
-        os.mkdir("images")
-
+    object_path_name = "-".join(metric_object.lower().split(" "))
     filename = "-".join(title.lower().split(" "))
 
-    fig.write_image(f"images/{filename}.{filetype}")
+    write_image(fig, object_path_name, filename, filetype)
 
     # # Show the plot
     # fig.show()

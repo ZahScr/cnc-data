@@ -1,5 +1,6 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.dataframe import DataFrame
+from typing import List
 from pyspark.sql.functions import col, first_value, row_number
 from pyspark.sql.window import Window
 from pyspark.sql.functions import (
@@ -92,56 +93,30 @@ def transform_for_metrics(spark: SparkSession, df: DataFrame) -> DataFrame:
 # This function is used to load the raw CNC data into a Spark dataframe
 def load_cnc_data(spark: SparkSession) -> DataFrame:
     # Define the paths to the CSV files
-    csv_path1 = "cnc_data/raw/observations-420624.csv"
-    csv_path2 = "cnc_data/raw/observations-420636.csv"
-    csv_path3 = "cnc_data/raw/observations-420647.csv"
+    csv_path = "cnc_data/raw/observations-422901.csv"
+    # csv_path1 = "cnc_data/raw/observations-420624.csv"
+    # csv_path2 = "cnc_data/raw/observations-420636.csv"
+    # csv_path3 = "cnc_data/raw/observations-420647.csv"
 
     # Read the CSV files into Spark dataframes
-    df1 = (
+    df = (
         spark.read.format("csv")
         .option("header", "true")
-        .load(csv_path1)
+        .load(csv_path)
         .select(
+            col("id"),
             col("observed_on"),
             col("time_observed_at"),
             col("id"),
             col("taxon_id"),
+            col("taxon_kingdom_name"),
             col("user_id"),
             col("common_name"),
             col("scientific_name"),
+            col("created_at"),
         )
+        .na.drop()
     )
-    df2 = (
-        spark.read.format("csv")
-        .option("header", "true")
-        .load(csv_path2)
-        .select(
-            col("observed_on"),
-            col("time_observed_at"),
-            col("id"),
-            col("taxon_id"),
-            col("user_id"),
-            col("common_name"),
-            col("scientific_name"),
-        )
-    )
-    df3 = (
-        spark.read.format("csv")
-        .option("header", "true")
-        .load(csv_path3)
-        .select(
-            col("observed_on"),
-            col("time_observed_at"),
-            col("id"),
-            col("taxon_id"),
-            col("user_id"),
-            col("common_name"),
-            col("scientific_name"),
-        )
-    )
-
-    # Concatenate the two dataframes vertically
-    df = df1.unionAll(df2).unionAll(df3)
 
     # Print the column names
     # print("Loaded observations dataset with columns:")
@@ -151,19 +126,7 @@ def load_cnc_data(spark: SparkSession) -> DataFrame:
     # Count the total number of rows
     print(f"Total rows raw loaded: {df.count()}")
 
-    # Select the specified columns and drop one nulls
-    df = df.select(
-        "observed_on",
-        "time_observed_at",
-        "id",
-        "taxon_id",
-        "user_id",
-        # "taxon_kingdom_name",
-        "common_name",
-        "scientific_name",
-    )
-
-    df.offset(1000).show(500)
+    # df.offset(1000).show(500)
 
     df = transform_for_metrics(spark, df)
 
@@ -232,16 +195,51 @@ def create_date_dimension(spark, starting_year=2015, ending_year=2025):
     return date_dimension_df
 
 
-def load_metrics_data(spark: SparkSession, period: str = "weekly") -> list[DataFrame]:
+def load_metrics_data(spark: SparkSession, period: str = "weekly") -> List[DataFrame]:
     # Load CNC metrics data
     users_df = spark.read.csv(f"cnc_data/output/{period}_users", header=True)
     species_df = spark.read.csv(f"cnc_data/output/{period}_species", header=True)
     observations_df = spark.read.csv(
         f"cnc_data/output/{period}_observations", header=True
     )
-    plants_df = spark.read.csv(f"cnc_data/output/{period}_plants")
+    by_species = spark.read.csv(f"cnc_data/output/{period}_by_species", header=True)
 
-    return [users_df, species_df, observations_df, plants_df]
+    return [users_df, species_df, observations_df, by_species]
+
+
+def adjust_yearly_cumulative_observations(
+    df: DataFrame,
+    period_column_name: str = "week",
+    yoy_x_column_name: str = "week_number",
+    partition_columns: List[str] = ["year", "taxon_id"],
+) -> DataFrame:
+    year_window = Window.partitionBy(partition_columns).orderBy(col(period_column_name))
+    yoy_column_window = Window.partitionBy(
+        *[[yoy_x_column_name] + partition_columns]
+    ).orderBy(col(period_column_name))
+
+    df = df.withColumn(
+        f"starting_cumulative_observations",
+        first_value(f"cumulative_observations").over(year_window),
+    ).withColumn(
+        f"year_adjusted_cumulative_observations",
+        (
+            col(f"cumulative_observations") - col(f"starting_cumulative_observations")
+        ).cast("int"),
+    )
+
+    transformed_df = (
+        df.distinct()
+        .withColumn(
+            "row_number",
+            row_number().over(yoy_column_window),
+        )
+        .filter(col("row_number") == 1)
+        .drop("row_number")
+        .orderBy(period_column_name)
+    )
+
+    return transformed_df
 
 
 def transform_for_weekly_cumulative_year_chart(
