@@ -45,7 +45,6 @@ def export_main_metric_charts():
             period_name="week number",
             x_column="week_number",
             y_column=y_column_yearly,
-            filetype="svg",
         )
 
         # Export weekly cumulative charts with all time
@@ -55,7 +54,6 @@ def export_main_metric_charts():
             period_name="week",
             x_column="week",
             y_column=y_column_all_time,
-            filetype="svg",
         )
 
         # Export weekly unique charts
@@ -66,7 +64,6 @@ def export_main_metric_charts():
             period_name="week number",
             x_column="week_number",
             y_column=f"unique_{metric}",
-            filetype="svg",
         )
 
         export_new_objects_yearly_chart(
@@ -76,7 +73,6 @@ def export_main_metric_charts():
             period_name="week",
             x_column="week",
             y_column=f"unique_{metric}",
-            filetype="svg",
         )
 
         # Export weekly new charts (exclude observations since `new` is not possible)
@@ -88,7 +84,6 @@ def export_main_metric_charts():
                 period_name="week number",
                 x_column="week_number",
                 y_column=f"new_{metric}",
-                filetype="svg",
             )
 
             export_new_objects_yearly_chart(
@@ -98,7 +93,6 @@ def export_main_metric_charts():
                 period_name="week",
                 x_column="week",
                 y_column=f"new_{metric}",
-                filetype="svg",
             )
 
 
@@ -109,7 +103,7 @@ def export_species_metrics_charts():
 
     weekly_by_species_transformed_df = adjust_yearly_cumulative_observations(
         weekly_by_species_df
-    )
+    ).filter(col("year") >= 2018)
 
     for species_name in ALL_SCIENTIFIC_NAMES:
         weekly_by_species_transformed_test = weekly_by_species_transformed_df.filter(
@@ -125,7 +119,6 @@ def export_species_metrics_charts():
             period_name="week number",
             x_column="week_number",
             y_column="year_adjusted_cumulative_observations",
-            filetype="svg",
         )
 
         # Yearly by week all time
@@ -135,7 +128,6 @@ def export_species_metrics_charts():
             period_name="week",
             x_column="week",
             y_column="year_adjusted_cumulative_observations",
-            filetype="svg",
         )
 
         # Export weekly unique charts
@@ -146,9 +138,8 @@ def export_species_metrics_charts():
             period_name="week number",
             x_column="week_number",
             y_column="observations",
-            filetype="svg",
         )
 
 
-# export_main_metric_charts()
+export_main_metric_charts()
 export_species_metrics_charts()

@@ -15,10 +15,14 @@ year_color_map = [
     [2022, "#66c2a5"],
     [2023, "#3288bd"],
     [2024, "#5e4fa2"],
+    [2025, "#9e0142"],
 ]
 
 
-def write_image(fig, object_path_name: str, filename: str, filetype: str = "png"):
+def write_image(fig, object_path_name: str, filename: str, filetype: str = "svg"):
+    if not os.path.exists("images"):
+        os.mkdir("images")
+
     if not os.path.exists(f"images/{object_path_name}"):
         os.mkdir(f"images/{object_path_name}")
 
@@ -55,7 +59,7 @@ def export_new_objects_yearly_chart(
     period_name: str,
     x_column: str,
     y_column: str,
-    filetype="png",
+    filetype="svg",
     cnc_events=None,
 ):
     df_pd = transform_for_chart(df, x_column)
@@ -147,7 +151,7 @@ def export_cumulative_yearly_chart(
     period_name: str,
     x_column: str,
     y_column: str,
-    filetype="png",
+    filetype="svg",
 ):
     df_pd = transform_for_chart(df, x_column)
 
