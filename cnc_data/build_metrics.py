@@ -1,6 +1,5 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.window import Window
-from cnc_data.utilities.data_utils import load_cnc_data
+from cnc_data.utilities.data_utils import load_raw_data
 from cnc_data.models.users import calculate_weekly_user_metrics
 from cnc_data.models.species import (
     calculate_weekly_species_metrics,
@@ -17,7 +16,7 @@ from cnc_data.constants import (
 # Create a SparkSession
 spark = SparkSession.builder.appName("CNC Data").getOrCreate()
 
-df = load_cnc_data(spark)
+df = load_raw_data(spark)
 
 # Build weekly metrics
 weekly_users_df = calculate_weekly_user_metrics(spark, df)

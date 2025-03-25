@@ -1,3 +1,4 @@
+import os
 from pyspark.sql import SparkSession
 from pyspark.sql.dataframe import DataFrame
 from typing import List
@@ -26,8 +27,8 @@ def get_cnc_events():
         "2020": ["2020-04-24", "2020-04-27"],
         "2021": ["2021-04-30", "2021-05-03"],
         "2022": ["2022-04-29", "2022-05-02"],
-        "2023": ["2023-04-29", "2023-05-02"],
-        "2024": ["2024-04-29", "2024-05-02"],
+        "2023": ["2023-04-28", "2023-05-01"],
+        "2024": ["2024-04-25", "2024-04-29"],
     }
 
 
@@ -42,10 +43,8 @@ def date_trunc_week(date):
 # This function is used to transform the raw data into a format that can be used for analysis
 def transform_for_metrics(spark: SparkSession, df: DataFrame) -> DataFrame:
     df = (
-        df.filter(col("observed_on") >= "2015-01-01")
-        .withColumnRenamed("observed_on", "observed_date")
+        df.withColumnRenamed("observed_on", "observed_date")
         .withColumn("observed_week", date_trunc("week", "observed_date").cast("date"))
-        .na.drop()
     )
 
     first_user_week_observations = df.groupBy("user_id").agg(
@@ -91,31 +90,80 @@ def transform_for_metrics(spark: SparkSession, df: DataFrame) -> DataFrame:
 
 
 # This function is used to load the raw CNC data into a Spark dataframe
-def load_cnc_data(spark: SparkSession) -> DataFrame:
-    # Define the paths to the CSV files
-    csv_path = "cnc_data/raw/observations-422901.csv"
-    # csv_path1 = "cnc_data/raw/observations-420624.csv"
-    # csv_path2 = "cnc_data/raw/observations-420636.csv"
-    # csv_path3 = "cnc_data/raw/observations-420647.csv"
+def load_raw_data(spark: SparkSession) -> DataFrame:
+    # Paths to the CSV files
+    directory_path = "cnc_data/raw/"
 
-    # Read the CSV files into Spark dataframes
-    df = (
-        spark.read.format("csv")
-        .option("header", "true")
-        .load(csv_path)
-        .select(
+    # Get list of file names (can filter by extension just in case)
+    file_list = [os.path.join(directory_path, f) for f in os.listdir(directory_path) if f.endswith(".csv")]
+
+    # Initialize an empty DataFrame
+    final_df = None
+
+    # Loop through files and union them
+    for idx, file_path in enumerate(file_list):
+        print(f"Loading file {idx + 1} from path: {file_path}")
+        
+        df = spark.read.option("header", "true").csv(file_path)
+
+        df = df.select(
+            col("id"),
+            col("uuid"),
+            col("observed_on"),
+            col("time_observed_at"),
+            col("user_id"),
+            col("created_at"),
+            col("scientific_name"),
+            col("common_name"),
+            col("taxon_id"),
+            col("taxon_kingdom_name"),
+            col("taxon_species_name"),
+        )
+
+        # Validate that required columns are present
+        required_columns = [
+            "id",
+            "uuid",
+            "observed_on",
+            "time_observed_at",
+            "user_id",
+            "created_at",
+            # "latitude",
+            # "longitude",
+            "scientific_name",
+            "common_name",
+            "taxon_id",
+            "taxon_kingdom_name",
+            "taxon_species_name",
+        ]
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
+        
+        print(f"Loaded {df.count()} rows from {file_path}")
+
+        if final_df is None:
+            final_df = df
+        else:
+            final_df = final_df.unionByName(df)
+
+    print(f"Loaded total {final_df.count()} rows from {len(file_list)} files.")
+
+    # Select relevant columns, drop na
+    final_df = (
+        final_df.select(
             col("id"),
             col("observed_on"),
             col("time_observed_at"),
-            col("id"),
+            col("uuid"),
             col("taxon_id"),
             col("taxon_kingdom_name"),
+            col("taxon_species_name"),
             col("user_id"),
             col("common_name"),
             col("scientific_name"),
             col("created_at"),
         )
-        .na.drop()
     )
 
     # Print the column names
@@ -124,15 +172,15 @@ def load_cnc_data(spark: SparkSession) -> DataFrame:
     #     print(name)
 
     # Count the total number of rows
-    print(f"Total rows raw loaded: {df.count()}")
+    print(f"Total rows raw loaded: {final_df.count()}")
 
     # df.offset(1000).show(500)
 
-    df = transform_for_metrics(spark, df)
+    transformed_df = transform_for_metrics(spark, final_df)
 
-    print(f"Total rows cleaned: {df.count()}")
+    print(f"Total rows post-transform: {transformed_df.count()}")
 
-    return df
+    return transformed_df
 
 
 def create_date_dimension(spark, starting_year=2015, ending_year=2025):
