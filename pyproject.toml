@@ -2,16 +2,16 @@
 name = "cnc-data"
 version = "0.1.0"
 description = ""
-authors = ["Zach Scragg <zach.scragg@prodigygame.com>"]
+authors = ["Zach Scragg <zachscragg@gmail.com>"]
 readme = "README.md"
 packages = [{include = "cnc_data"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-pandas = "^1.5.3"
+pandas = "2.2.1"
 plotly = "^5.13.1"
 pyspark = "^3.3.2"
-datetime = "^5.1"
+numpy = "1.26.4"
 
 
 [build-system]
